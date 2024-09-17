@@ -1,6 +1,8 @@
 import React from 'react'
 
-const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
+const Home = React.lazy(() => import('./views/home/Home'))
+const Projects = React.lazy(() => import('./views/projects/Projects'))
+const Connections = React.lazy(() => import('./views/connections/Connections'))
 const Colors = React.lazy(() => import('./views/theme/colors/Colors'))
 const Typography = React.lazy(() => import('./views/theme/typography/Typography'))
 
@@ -51,9 +53,20 @@ const Toasts = React.lazy(() => import('./views/notifications/toasts/Toasts'))
 
 const Widgets = React.lazy(() => import('./views/widgets/Widgets'))
 
+const CreateConnection = React.lazy(() => import('./views/connections/CreateConnection'))
+const EditConnection = React.lazy(() => import('./views/connections/EditConnection'))
+const CreateProject = React.lazy(() => import('./views/projects/CreateProject'))
+const EditProject = React.lazy(() => import('./views/projects/EditProject'))
+
 const routes = [
   { path: '/', exact: true, name: 'Home' },
-  { path: '/dashboard', name: 'Dashboard', element: Dashboard },
+  { path: '/home', name: 'Home', element: Home },
+  { path: '/projects', name: 'Projects', element: Projects },
+  { path: '/projects/create', name: 'Create Project', element: CreateProject },
+  { path: '/projects/edit/:id', name: 'Edit Project', element: EditProject },
+  { path: '/connections', name: 'Connections', element: Connections },
+  { path: '/connections/create', name: 'Create Connection', element: CreateConnection },
+  { path: '/connections/edit/:id', name: 'Edit Connection', element: EditConnection },
   { path: '/theme', name: 'Theme', element: Colors, exact: true },
   { path: '/theme/colors', name: 'Colors', element: Colors },
   { path: '/theme/typography', name: 'Typography', element: Typography },
