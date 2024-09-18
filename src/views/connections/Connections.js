@@ -15,6 +15,7 @@ import {
   CTableHeaderCell,
   CTableRow,
   CSpinner,
+  CBadge,
 } from '@coreui/react'
 
 const Connections = () => {
@@ -40,6 +41,17 @@ const Connections = () => {
       setError('Failed to fetch connections. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'Connected':
+        return <CBadge color="success">Connected</CBadge>
+      case 'Error':
+        return <CBadge color="danger">Error</CBadge>
+      default:
+        return <CBadge color="secondary">Not Tested</CBadge>
     }
   }
 
@@ -88,8 +100,9 @@ const Connections = () => {
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>Type</CTableHeaderCell>
-                    <CTableHeaderCell>Host/Username</CTableHeaderCell>
-                    <CTableHeaderCell>Created At</CTableHeaderCell>
+                    <CTableHeaderCell>Username</CTableHeaderCell>
+                    <CTableHeaderCell>Host/Authentication URL</CTableHeaderCell>
+                    <CTableHeaderCell>Status</CTableHeaderCell>
                     <CTableHeaderCell>Actions</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
@@ -99,12 +112,15 @@ const Connections = () => {
                       <CTableDataCell>{connection.connection_type}</CTableDataCell>
                       <CTableDataCell>
                         {connection.connection_type === 'SFTP'
-                          ? connection.sftp_host
+                          ? connection.sftp_username
                           : connection.salesforce_username}
                       </CTableDataCell>
                       <CTableDataCell>
-                        {new Date(connection.created_at).toLocaleString()}
+                        {connection.connection_type === 'SFTP'
+                          ? connection.sftp_host
+                          : connection.salesforce_authentication_URL}
                       </CTableDataCell>
+                      <CTableDataCell>{getStatusBadge(connection.status)}</CTableDataCell>
                       <CTableDataCell>
                         <CButton
                           color="primary"

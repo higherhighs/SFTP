@@ -22,14 +22,29 @@ const CreateConnection = () => {
     sftp_password: '',
     salesforce_username: '',
     salesforce_password: '',
-    salesforce_security_token: '',
+    salesforce_consumer_key: '',
+    salesforce_consumer_secret: '',
+    salesforce_authentication_URL: 'https://login.salesforce.com/',
   })
+  const [sfEnvironment, setSfEnvironment] = useState('Production')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSfEnvironmentChange = (e) => {
+    const environment = e.target.value
+    setSfEnvironment(environment)
+    let url = 'https://login.salesforce.com/'
+    if (environment === 'Sandbox') {
+      url = 'https://test.salesforce.com/'
+    } else if (environment === 'Custom Domain') {
+      url = ''
+    }
+    setFormData((prev) => ({ ...prev, salesforce_authentication_URL: url }))
   }
 
   const handleSubmit = async (e) => {
@@ -59,7 +74,7 @@ const CreateConnection = () => {
       navigate('/connections')
     } catch (error) {
       console.error('Error creating connection:', error)
-      setError('Failed to create connection. Please try again.')
+      alert('Failed to create connection. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -131,31 +146,45 @@ const CreateConnection = () => {
             <CRow className="mt-3">
               <CCol md={6}>
                 <CFormInput
-                  name="salesforce_username"
-                  value={formData.salesforce_username}
+                  name="salesforce_consumer_key"
+                  value={formData.salesforce_consumer_key}
                   onChange={handleInputChange}
-                  label="Salesforce Username"
+                  label="Salesforce Consumer Key (Client ID)"
                   required
                 />
               </CCol>
               <CCol md={6}>
                 <CFormInput
                   type="password"
-                  name="salesforce_password"
-                  value={formData.salesforce_password}
+                  name="salesforce_consumer_secret"
+                  value={formData.salesforce_consumer_secret}
                   onChange={handleInputChange}
-                  label="Salesforce Password"
+                  label="Salesforce Consumer Secret (Client Secret)"
                   required
                 />
               </CCol>
-              <CCol md={12}>
+              <CCol md={6}>
                 <CFormInput
-                  name="salesforce_security_token"
-                  value={formData.salesforce_security_token}
+                  name="salesforce_authentication_URL"
+                  value={formData.salesforce_authentication_URL}
                   onChange={handleInputChange}
-                  label="Salesforce Security Token"
+                  label="Salesforce Authentication URL"
                   required
+                  disabled={sfEnvironment !== 'Custom Domain'}
                 />
+              </CCol>
+              <CCol md={6}>
+                <CFormSelect
+                  name="sf_environment"
+                  value={sfEnvironment}
+                  onChange={handleSfEnvironmentChange}
+                  label="Salesforce Environment"
+                  required
+                >
+                  <option value="Production">Production</option>
+                  <option value="Sandbox">Sandbox</option>
+                  <option value="Custom Domain">Custom Domain</option>
+                </CFormSelect>
               </CCol>
             </CRow>
           )}
