@@ -12,47 +12,40 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
 
-async function getSalesforceToken(authUrl, clientId, clientSecret) {
-  const tokenUrl = `${authUrl}/services/oauth2/token`;
-  const params = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: clientId,
-    client_secret: clientSecret
-  });
-
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: params
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to obtain token: ${response.statusText}`);
+async function testSFTPConnection(host: string, port: number) {
+  try {
+    const conn = await Deno.connect({ hostname: host, port: port });
+    conn.close();
+    return 'SFTP connection successful (TCP connection established)';
+  } catch (error) {
+    throw new Error(`SFTP connection failed: ${error.message}`);
   }
-
-  const data = await response.json();
-  return {
-    access_token: data.access_token,
-    instance_url: data.instance_url
-  };
 }
 
-async function testSalesforceConnection(instanceUrl, accessToken) {
-  const testResponse = await fetch(`${instanceUrl}/services/data/v54.0/sobjects`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
+async function testSalesforceConnection(authUrl: string, consumerKey: string, consumerSecret: string) {
+  try {
+    const tokenUrl = `${authUrl}/services/oauth2/token`;
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: consumerKey,
+        client_secret: consumerSecret,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  });
 
-  if (!testResponse.ok) {
-    const errorData = await testResponse.json();
-    throw new Error(errorData[0]?.message || 'Failed to connect to Salesforce API');
+    const data = await response.json();
+    return 'Salesforce connection successful';
+  } catch (error) {
+    throw new Error(`Salesforce connection failed: ${error.message}`);
   }
-
-  return true;
 }
 
 serve(async (req) => {
@@ -62,7 +55,6 @@ serve(async (req) => {
 
   try {
     const { 
-      id,
       connection_type, 
       sftp_host, 
       sftp_port, 
@@ -71,47 +63,44 @@ serve(async (req) => {
       salesforce_authentication_URL,
       salesforce_consumer_key,
       salesforce_consumer_secret,
+      id 
     } = await req.json()
-
-    let status = 'Error'
+    let status = 'Failed'
     let message = ''
 
-    if (connection_type === 'SFTP') {
-      // Existing SFTP connection test code...
-    } else if (connection_type === 'Salesforce') {
+    if (connection_type === 'SFTP' && sftp_host && sftp_port) {
       try {
-        // Always get a new token
-        const tokenData = await getSalesforceToken(
-          salesforce_authentication_URL,
-          salesforce_consumer_key,
-          salesforce_consumer_secret
-        );
-
-        // Test the connection
-        await testSalesforceConnection(tokenData.instance_url, tokenData.access_token);
-
-        // Update the connection with the new token only if id is provided
-        if (id) {
-          const { error: updateError } = await supabaseAdmin
-            .from('connections')
-            .update({ 
-              salesforce_access_token: tokenData.access_token
-            })
-            .eq('id', id);
-
-          if (updateError) {
-            console.error('Failed to update token:', updateError);
-            // Don't throw an error here, just log it
-          }
-        } else {
-          console.log('No id provided, skipping token update in database');
-        }
-
+        message = await testSFTPConnection(sftp_host, sftp_port)
         status = 'Connected'
-        message = 'Salesforce connection successful'
       } catch (err) {
-        message = `Salesforce connection failed: ${err.message}`
+        message = err.message
       }
+    } else if (connection_type === 'Salesforce' && salesforce_authentication_URL && salesforce_consumer_key && salesforce_consumer_secret) {
+      try {
+        message = await testSalesforceConnection(salesforce_authentication_URL, salesforce_consumer_key, salesforce_consumer_secret)
+        status = 'Connected'
+      } catch (err) {
+        message = err.message
+      }
+    } else {
+      message = 'Invalid connection type or missing parameters'
+    }
+
+    if (id && status === 'Connected') {
+      try {
+        const { error: updateError } = await supabaseAdmin
+          .from('connections')
+          .update({ last_connected: new Date().toISOString(), status: status })
+          .eq('id', id)
+
+        if (updateError) {
+          console.error('Failed to update connection:', updateError)
+        }
+      } catch (updateError) {
+        console.error('Failed to update connection:', updateError)
+      }
+    } else {
+      console.log('No id provided or connection failed, skipping update in database')
     }
 
     return new Response(
@@ -119,7 +108,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Edge Function error:', error);
+    console.error('Edge Function error:', error)
     return new Response(
       JSON.stringify({ 
         error: error.message,
